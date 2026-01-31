@@ -447,6 +447,19 @@
             overflow-x: auto;
             font-size: 0.9rem;
             margin: 1rem 0;
+            white-space: pre;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        
+        .modal-content .code-block {
+            background: var(--bg);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            white-space: pre;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
         }
         
         .modal-explanation {
@@ -806,12 +819,31 @@
         });
         
         function formatContent(content) {
+            // Detect code blocks (indented or specific patterns)
+            let formatted = escapeHtml(content);
+            
+            // Handle SEED/BLOOM code blocks (preserve whitespace)
+            formatted = formatted.replace(
+                /(SEED:|BLOOM:|```)([\s\S]*?)((?=\n\n[A-Z])|(?=\n\n\*)|$)/g,
+                (match, prefix, code, suffix) => {
+                    return `<strong>${prefix}</strong><pre>${code}</pre>${suffix}`;
+                }
+            );
+            
+            // Handle lines that start with spaces (preserve as pre)
+            formatted = formatted.replace(
+                /\n([ ]{2,}[^\n]+)/g,
+                (match, line) => `\n<code style="display:block;white-space:pre">${line}</code>`
+            );
+            
             // Basic markdown-like formatting
-            return escapeHtml(content)
+            formatted = formatted
                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
                 .replace(/\n\n/g, '</p><p>')
                 .replace(/\n/g, '<br>');
+            
+            return `<p>${formatted}</p>`;
         }
         
         function escapeHtml(text) {
