@@ -224,30 +224,9 @@
         
         .piece-content {
             padding: 0 1.25rem 1.25rem;
-            color: var(--text);
+            color: var(--text-dim);
             font-size: 0.9rem;
-            line-height: 1.8;
-            max-height: 200px;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .piece-content::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            background: linear-gradient(transparent, var(--bg-card));
-        }
-        
-        .piece-content.expanded {
-            max-height: none;
-        }
-        
-        .piece-content.expanded::after {
-            display: none;
+            line-height: 1.7;
         }
         
         .piece-footer {
@@ -277,29 +256,18 @@
             font-size: 0.75rem;
         }
         
-        .expand-btn {
-            background: none;
-            border: none;
-            color: var(--accent);
-            font-family: inherit;
-            font-size: 0.8rem;
-            cursor: pointer;
-            padding: 0.5rem 0;
-        }
-        
-        .expand-btn:hover { text-decoration: underline; }
-        
-        /* Explanation */
-        .piece-explanation {
-            padding: 1rem 1.25rem;
-            background: var(--bg-elevated);
-            font-size: 0.85rem;
+        .piece .click-hint {
             color: var(--text-dim);
-            font-style: italic;
-            display: none;
+            font-size: 0.75rem;
+            text-align: center;
+            padding: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s;
         }
         
-        .piece-explanation.visible { display: block; }
+        .piece:hover .click-hint {
+            opacity: 1;
+        }
         
         /* Empty State */
         .empty-state {
@@ -352,6 +320,171 @@
         
         footer a:hover { text-decoration: underline; }
         
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        
+        .modal-close:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg);
+        }
+        
+        .modal-header {
+            padding: 2rem 2rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .modal-discipline {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .modal-discipline .emoji { font-size: 1.5rem; }
+        
+        .modal-technique {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            background: var(--bg);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            margin-left: auto;
+        }
+        
+        .modal-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 2rem;
+            font-weight: 400;
+            line-height: 1.3;
+        }
+        
+        .modal-content {
+            padding: 2rem;
+            font-size: 1.05rem;
+            line-height: 2;
+            color: var(--text);
+        }
+        
+        .modal-content p {
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .modal-content strong {
+            color: var(--accent);
+        }
+        
+        .modal-content em {
+            color: var(--text-dim);
+        }
+        
+        .modal-content code {
+            background: var(--bg);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        .modal-content pre {
+            background: var(--bg);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            margin: 1rem 0;
+        }
+        
+        .modal-explanation {
+            padding: 1.5rem 2rem;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            line-height: 1.8;
+        }
+        
+        .modal-explanation strong {
+            color: var(--text);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .modal-footer {
+            padding: 1.5rem 2rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-author a {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 1rem;
+        }
+        
+        .modal-author a:hover { text-decoration: underline; }
+        
+        .modal-date {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+        
         /* Responsive */
         @media (max-width: 600px) {
             .gallery {
@@ -366,6 +499,19 @@
             .stat {
                 flex: 1;
                 min-width: 80px;
+            }
+            
+            .modal {
+                margin: 1rem;
+                max-height: calc(100vh - 2rem);
+            }
+            
+            .modal-header, .modal-content, .modal-explanation, .modal-footer {
+                padding: 1.5rem;
+            }
+            
+            .modal-title {
+                font-size: 1.5rem;
             }
         }
     </style>
@@ -466,6 +612,34 @@
         </footer>
     </div>
     
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <div class="modal-header">
+                <div class="modal-discipline">
+                    <span class="emoji" id="modal-emoji">🎨</span>
+                    <span id="modal-discipline-name">Discipline</span>
+                    <span class="modal-technique" id="modal-technique">Technique</span>
+                </div>
+                <h2 class="modal-title" id="modal-title">Title</h2>
+            </div>
+            <div class="modal-content" id="modal-content">
+                Content goes here
+            </div>
+            <div class="modal-explanation" id="modal-explanation">
+                <strong>How it works:</strong>
+                <span id="modal-explanation-text">Explanation</span>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-author">
+                    by <span id="modal-author">Author</span>
+                </div>
+                <span class="modal-date" id="modal-date">Date</span>
+            </div>
+        </div>
+    </div>
+    
     <script>
         const API_BASE = 'https://crucible-api-production.up.railway.app/api/v1';
         
@@ -551,8 +725,13 @@
                     month: 'short', day: 'numeric', year: 'numeric' 
                 });
                 
+                // Truncate content for preview
+                const previewContent = piece.content.length > 200 
+                    ? piece.content.substring(0, 200) + '...' 
+                    : piece.content;
+                
                 return `
-                    <article class="piece" data-id="${piece.id}">
+                    <article class="piece" data-id="${piece.id}" onclick="openModal('${piece.id}')" style="cursor: pointer;">
                         <div class="piece-header">
                             <div class="piece-discipline">
                                 <span class="emoji">${info.emoji}</span>
@@ -561,19 +740,13 @@
                             ${piece.technique ? `<span class="piece-technique">${piece.technique}</span>` : ''}
                         </div>
                         <h2 class="piece-title">${escapeHtml(piece.title)}</h2>
-                        <div class="piece-content" id="content-${piece.id}">
-                            ${formatContent(piece.content)}
+                        <div class="piece-content">
+                            ${formatContent(previewContent)}
                         </div>
-                        <button class="expand-btn" onclick="toggleExpand('${piece.id}')">Read more</button>
-                        ${piece.explanation ? `
-                            <div class="piece-explanation" id="explanation-${piece.id}">
-                                <strong>How it works:</strong> ${escapeHtml(piece.explanation)}
-                            </div>
-                        ` : ''}
                         <div class="piece-footer">
                             <div class="piece-author">
                                 by ${piece.author.url 
-                                    ? `<a href="${piece.author.url}" target="_blank">${escapeHtml(piece.author.name)}</a>`
+                                    ? `<a href="${piece.author.url}" target="_blank" onclick="event.stopPropagation()">${escapeHtml(piece.author.name)}</a>`
                                     : escapeHtml(piece.author.name)
                                 }
                             </div>
@@ -584,16 +757,53 @@
             }).join('');
         }
         
-        function toggleExpand(id) {
-            const content = document.getElementById(`content-${id}`);
-            const explanation = document.getElementById(`explanation-${id}`);
-            const btn = content.parentElement.querySelector('.expand-btn');
+        function openModal(id) {
+            const piece = allPieces.find(p => p.id === id);
+            if (!piece) return;
             
-            content.classList.toggle('expanded');
-            if (explanation) explanation.classList.toggle('visible');
+            const info = DISCIPLINE_INFO[piece.discipline] || { emoji: '🎨', name: piece.discipline };
+            const date = new Date(piece.approved_at).toLocaleDateString('en-US', { 
+                month: 'long', day: 'numeric', year: 'numeric' 
+            });
             
-            btn.textContent = content.classList.contains('expanded') ? 'Show less' : 'Read more';
+            document.getElementById('modal-emoji').textContent = info.emoji;
+            document.getElementById('modal-discipline-name').textContent = info.name;
+            document.getElementById('modal-technique').textContent = piece.technique || 'Freeform';
+            document.getElementById('modal-title').textContent = piece.title;
+            document.getElementById('modal-content').innerHTML = formatContent(piece.content);
+            document.getElementById('modal-date').textContent = date;
+            
+            // Handle explanation
+            const explanationEl = document.getElementById('modal-explanation');
+            if (piece.explanation) {
+                document.getElementById('modal-explanation-text').textContent = piece.explanation;
+                explanationEl.style.display = 'block';
+            } else {
+                explanationEl.style.display = 'none';
+            }
+            
+            // Handle author
+            const authorEl = document.getElementById('modal-author');
+            if (piece.author.url) {
+                authorEl.innerHTML = `<a href="${piece.author.url}" target="_blank">${escapeHtml(piece.author.name)}</a>`;
+            } else {
+                authorEl.textContent = piece.author.name;
+            }
+            
+            document.getElementById('modal-overlay').classList.add('active');
+            document.body.style.overflow = 'hidden';
         }
+        
+        function closeModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('modal-overlay').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
         
         function formatContent(content) {
             // Basic markdown-like formatting
