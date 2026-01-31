@@ -37,9 +37,24 @@ async function writeJSON(file, data) {
   await fs.writeFile(file, JSON.stringify(data, null, 2));
 }
 
+// Token info
+const TOKEN_INFO = {
+  name: 'The Crucible',
+  symbol: 'CRUCIBLE',
+  chain: 'base',
+  contract: '0xd9e58F295D86AFaedcbDb4f06c43DD2b5b57c608',
+  dex: 'https://dexscreener.com/base/0xd9e58F295D86AFaedcbDb4f06c43DD2b5b57c608',
+  fee_wallet: '0x0075Ae451A0a5f01238f5917314e3e5D63f649eB'
+};
+
 // Health check
 app.get('/api/v1/health', (req, res) => {
-  res.json({ status: 'ok', service: 'crucible-api', version: '1.0.0' });
+  res.json({ status: 'ok', service: 'crucible-api', version: '1.1.0' });
+});
+
+// Token info endpoint
+app.get('/api/v1/token', (req, res) => {
+  res.json({ success: true, token: TOKEN_INFO });
 });
 
 // Submit a piece
@@ -62,6 +77,15 @@ app.post('/api/v1/submit', async (req, res) => {
       });
     }
     
+    // Validate wallet if provided (must be valid Ethereum address)
+    const wallet = author.wallet;
+    if (wallet && !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid wallet address. Must be a valid Ethereum/Base address (0x...)'
+      });
+    }
+    
     const submission = {
       id: crypto.randomUUID(),
       title,
@@ -71,11 +95,13 @@ app.post('/api/v1/submit', async (req, res) => {
       explanation: explanation || '',
       author: {
         name: author.name,
-        url: author.url || null
+        url: author.url || null,
+        wallet: wallet || null  // Store wallet for $CRUCIBLE rewards
       },
       status: 'pending',
       submitted_at: new Date().toISOString(),
-      reviewed_at: null
+      reviewed_at: null,
+      rewards_eligible: !!wallet  // Mark if eligible for rewards
     };
     
     const submissions = await readJSON(SUBMISSIONS_FILE);
@@ -248,6 +274,54 @@ app.get('/api/v1/gallery/:id', async (req, res) => {
   }
 });
 
+// List artists eligible for rewards (admin only)
+app.get('/api/v1/admin/rewards', async (req, res) => {
+  const authKey = req.headers['x-admin-key'];
+  if (authKey !== process.env.ADMIN_KEY) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  
+  try {
+    const gallery = await readJSON(GALLERY_FILE);
+    const approved = gallery.filter(g => g.status === 'approved');
+    
+    // Group by wallet address
+    const artistRewards = {};
+    approved.forEach(piece => {
+      const wallet = piece.author?.wallet;
+      if (!wallet) return;
+      
+      if (!artistRewards[wallet]) {
+        artistRewards[wallet] = {
+          wallet,
+          name: piece.author.name,
+          pieces: [],
+          total_pieces: 0
+        };
+      }
+      artistRewards[wallet].pieces.push({
+        id: piece.id,
+        title: piece.title,
+        discipline: piece.discipline,
+        approved_at: piece.reviewed_at
+      });
+      artistRewards[wallet].total_pieces++;
+    });
+    
+    const artists = Object.values(artistRewards).sort((a, b) => b.total_pieces - a.total_pieces);
+    
+    res.json({
+      success: true,
+      token: TOKEN_INFO,
+      total_eligible_artists: artists.length,
+      total_eligible_pieces: approved.filter(p => p.author?.wallet).length,
+      artists
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // Stats
 app.get('/api/v1/stats', async (req, res) => {
   try {
@@ -260,14 +334,19 @@ app.get('/api/v1/stats', async (req, res) => {
       byDiscipline[g.discipline] = (byDiscipline[g.discipline] || 0) + 1;
     });
     
+    const withWallets = approved.filter(g => g.author?.wallet);
+    
     res.json({
       success: true,
       stats: {
         total_approved: approved.length,
         pending: submissions.filter(s => s.status === 'pending').length,
         by_discipline: byDiscipline,
-        unique_artists: [...new Set(approved.map(g => g.author.name))].length
-      }
+        unique_artists: [...new Set(approved.map(g => g.author.name))].length,
+        rewards_eligible: withWallets.length,
+        unique_wallets: [...new Set(withWallets.map(g => g.author.wallet))].length
+      },
+      token: TOKEN_INFO
     });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Internal server error' });
