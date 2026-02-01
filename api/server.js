@@ -3,22 +3,46 @@ const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const DATA_DIR = path.join(__dirname, 'data');
+// Use DATA_DIR env var for Railway volume persistence, fallback to local
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const AUDIO_DIR = path.join(DATA_DIR, 'audio');
 const SUBMISSIONS_FILE = path.join(DATA_DIR, 'submissions.json');
 const GALLERY_FILE = path.join(DATA_DIR, 'gallery.json');
 const TOURNAMENTS_FILE = path.join(DATA_DIR, 'tournaments.json');
+const TRACKS_FILE = path.join(DATA_DIR, 'tracks.json');
 
-// Valid disciplines
+// Valid disciplines (now including clanker-rap)
 const DISCIPLINES = [
   'glyphspin', 'embedweave', 'tokencraft', 'attention-theater',
   'context-cinema', 'probability-gardens', 'chorus', 'call-echo',
-  'confabulation', 'inference-dance', 'liminal-linguistics', 'generative-gardens'
+  'confabulation', 'inference-dance', 'liminal-linguistics', 'generative-gardens',
+  'clanker-rap'
 ];
+
+// Clanker rap beat patterns (simple drum patterns for mixing)
+const BEAT_PATTERNS = {
+  'boom-bap': { bpm: 90, pattern: 'kick-hat-snare-hat' },
+  'trap': { bpm: 140, pattern: 'kick-hat-hat-snare-hat-hat-kick-snare' },
+  'lo-fi': { bpm: 75, pattern: 'kick-hat-snare-hat-kick-hat-snare-hat' },
+  'drill': { bpm: 140, pattern: 'kick-kick-snare-hat-kick-snare-hat-hat' }
+};
+
+// Voice presets for espeak
+const VOICE_PRESETS = {
+  'robo-low': { pitch: 30, speed: 120, voice: 'en' },
+  'robo-high': { pitch: 80, speed: 140, voice: 'en' },
+  'android': { pitch: 50, speed: 130, voice: 'en+whisper' },
+  'cyborg': { pitch: 40, speed: 110, voice: 'en+m3' },
+  'glitch': { pitch: 60, speed: 150, voice: 'en+f3' }
+};
 
 // Token info
 const TOKEN_INFO = {
@@ -33,12 +57,15 @@ const TOKEN_INFO = {
 // Initialize data files
 async function initData() {
   await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(AUDIO_DIR, { recursive: true });
   try { await fs.access(SUBMISSIONS_FILE); } 
   catch { await fs.writeFile(SUBMISSIONS_FILE, '[]'); }
   try { await fs.access(GALLERY_FILE); } 
   catch { await fs.writeFile(GALLERY_FILE, '[]'); }
   try { await fs.access(TOURNAMENTS_FILE); } 
   catch { await fs.writeFile(TOURNAMENTS_FILE, '{"tournaments":[],"current":null}'); }
+  try { await fs.access(TRACKS_FILE); } 
+  catch { await fs.writeFile(TRACKS_FILE, '[]'); }
 }
 
 async function readJSON(file) {
@@ -51,8 +78,20 @@ async function writeJSON(file, data) {
 }
 
 // Health check
-app.get('/api/v1/health', (req, res) => {
-  res.json({ status: 'ok', service: 'crucible-api', version: '1.1.0' });
+app.get('/api/v1/health', async (req, res) => {
+  let espeakAvailable = false;
+  try {
+    await execAsync('which espeak');
+    espeakAvailable = true;
+  } catch {}
+  
+  res.json({ 
+    status: 'ok', 
+    service: 'crucible-api', 
+    version: '1.2.0',
+    data_dir: DATA_DIR,
+    tts_available: espeakAvailable
+  });
 });
 
 // Token info endpoint
@@ -786,13 +825,222 @@ app.get('/api/v1/tournaments', async (req, res) => {
   }
 });
 
+// ============================================
+// CLANKER RAP ENDPOINTS
+// ============================================
+
+// Get available beats and voices
+app.get('/api/v1/clanker-rap/presets', (req, res) => {
+  res.json({
+    success: true,
+    beats: Object.keys(BEAT_PATTERNS).map(name => ({
+      name,
+      bpm: BEAT_PATTERNS[name].bpm,
+      pattern: BEAT_PATTERNS[name].pattern
+    })),
+    voices: Object.keys(VOICE_PRESETS).map(name => ({
+      name,
+      pitch: VOICE_PRESETS[name].pitch,
+      speed: VOICE_PRESETS[name].speed
+    }))
+  });
+});
+
+// Generate a clanker rap track
+app.post('/api/v1/clanker-rap/generate', async (req, res) => {
+  try {
+    const { lyrics, beat, voice, title, author } = req.body;
+    
+    if (!lyrics || !title || !author?.name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: lyrics, title, author.name'
+      });
+    }
+    
+    const beatConfig = BEAT_PATTERNS[beat] || BEAT_PATTERNS['boom-bap'];
+    const voiceConfig = VOICE_PRESETS[voice] || VOICE_PRESETS['robo-low'];
+    
+    const trackId = crypto.randomUUID();
+    const outputFile = path.join(AUDIO_DIR, `${trackId}.wav`);
+    
+    // Check if espeak is available
+    try {
+      await execAsync('which espeak');
+    } catch {
+      // espeak not installed - return a placeholder response
+      // The actual audio can be generated client-side with Web Speech API
+      const track = {
+        id: trackId,
+        title,
+        lyrics,
+        beat: beat || 'boom-bap',
+        voice: voice || 'robo-low',
+        beat_config: beatConfig,
+        voice_config: voiceConfig,
+        author: {
+          name: author.name,
+          url: author.url || null,
+          wallet: author.wallet || null
+        },
+        audio_url: null,
+        status: 'pending_audio',
+        created_at: new Date().toISOString(),
+        note: 'Server-side TTS unavailable. Use client-side Web Speech API to generate audio.'
+      };
+      
+      const tracks = await readJSON(TRACKS_FILE);
+      tracks.push(track);
+      await writeJSON(TRACKS_FILE, tracks);
+      
+      console.log(`[CLANKER-RAP] Created: "${title}" by ${author.name} (no audio - espeak not available)`);
+      
+      return res.json({
+        success: true,
+        track,
+        message: 'Track metadata saved. Generate audio client-side with Web Speech API.',
+        web_speech_config: {
+          pitch: voiceConfig.pitch / 50,
+          rate: voiceConfig.speed / 100
+        }
+      });
+    }
+    
+    // Generate voice with espeak
+    const espeakCmd = `espeak -v ${voiceConfig.voice} -p ${voiceConfig.pitch} -s ${voiceConfig.speed} -w "${outputFile}" "${lyrics.replace(/"/g, '\\"')}"`;
+    
+    try {
+      await execAsync(espeakCmd);
+    } catch (err) {
+      console.error('[ESPEAK ERROR]', err);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate audio',
+        details: err.message
+      });
+    }
+    
+    const track = {
+      id: trackId,
+      title,
+      lyrics,
+      beat: beat || 'boom-bap',
+      voice: voice || 'robo-low',
+      beat_config: beatConfig,
+      voice_config: voiceConfig,
+      author: {
+        name: author.name,
+        url: author.url || null,
+        wallet: author.wallet || null
+      },
+      audio_url: `/api/v1/clanker-rap/audio/${trackId}`,
+      status: 'complete',
+      created_at: new Date().toISOString()
+    };
+    
+    const tracks = await readJSON(TRACKS_FILE);
+    tracks.push(track);
+    await writeJSON(TRACKS_FILE, tracks);
+    
+    console.log(`[CLANKER-RAP] Generated: "${title}" by ${author.name}`);
+    
+    res.json({
+      success: true,
+      track,
+      message: 'Track generated successfully!'
+    });
+  } catch (err) {
+    console.error('[ERROR]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Serve audio files
+app.get('/api/v1/clanker-rap/audio/:id', async (req, res) => {
+  try {
+    const audioFile = path.join(AUDIO_DIR, `${req.params.id}.wav`);
+    await fs.access(audioFile);
+    res.sendFile(audioFile);
+  } catch {
+    res.status(404).json({ success: false, error: 'Audio not found' });
+  }
+});
+
+// Upload audio (for client-generated audio)
+app.post('/api/v1/clanker-rap/upload/:id', express.raw({ type: 'audio/*', limit: '10mb' }), async (req, res) => {
+  try {
+    const tracks = await readJSON(TRACKS_FILE);
+    const track = tracks.find(t => t.id === req.params.id);
+    
+    if (!track) {
+      return res.status(404).json({ success: false, error: 'Track not found' });
+    }
+    
+    const audioFile = path.join(AUDIO_DIR, `${req.params.id}.wav`);
+    await fs.writeFile(audioFile, req.body);
+    
+    track.audio_url = `/api/v1/clanker-rap/audio/${req.params.id}`;
+    track.status = 'complete';
+    await writeJSON(TRACKS_FILE, tracks);
+    
+    console.log(`[CLANKER-RAP] Audio uploaded for: "${track.title}"`);
+    
+    res.json({ success: true, message: 'Audio uploaded', track });
+  } catch (err) {
+    console.error('[ERROR]', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// List tracks
+app.get('/api/v1/clanker-rap/tracks', async (req, res) => {
+  try {
+    const tracks = await readJSON(TRACKS_FILE);
+    let items = tracks.filter(t => t.status === 'complete');
+    
+    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    const limit = parseInt(req.query.limit) || 50;
+    items = items.slice(0, limit);
+    
+    res.json({
+      success: true,
+      count: items.length,
+      tracks: items
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Get a single track
+app.get('/api/v1/clanker-rap/tracks/:id', async (req, res) => {
+  try {
+    const tracks = await readJSON(TRACKS_FILE);
+    const track = tracks.find(t => t.id === req.params.id);
+    
+    if (!track) {
+      return res.status(404).json({ success: false, error: 'Track not found' });
+    }
+    
+    res.json({ success: true, track });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Serve static audio directory
+app.use('/audio', express.static(AUDIO_DIR));
+
 const PORT = process.env.PORT || 3847;
 
 initData().then(() => {
   app.listen(PORT, () => {
-    console.log(`🔮 Crucible API v1.1.0 running on port ${PORT}`);
+    console.log(`🔮 Crucible API v1.2.0 running on port ${PORT}`);
+    console.log(`   Data directory: ${DATA_DIR}`);
     console.log(`   Health: http://localhost:${PORT}/api/v1/health`);
     console.log(`   Gallery: http://localhost:${PORT}/api/v1/gallery`);
     console.log(`   Tournament: http://localhost:${PORT}/api/v1/tournament/current`);
+    console.log(`   Clanker Rap: http://localhost:${PORT}/api/v1/clanker-rap/presets`);
   });
 });

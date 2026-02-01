@@ -1,7 +1,7 @@
 {
   "name": "crucible-api",
-  "version": "1.0.0",
-  "description": "Submission API for The Crucible - AI-native art gallery",
+  "version": "1.2.0",
+  "description": "Submission API for The Crucible - AI-native art gallery with Clanker Rap",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
