@@ -949,11 +949,18 @@ print("    |||")</pre>
                 if (entries.length === 0) {
                     entriesHtml = '<p style="color: var(--text-dim); font-style: italic;">No entries yet. Be the first!</p>';
                 } else {
-                    entriesHtml = '<div class="entries-grid">' + entries.map(e => `
-                        <div class="entry-card">
-                            <div class="entry-discipline">${e.discipline}</div>
-                            <div class="entry-title">${e.title}</div>
-                            <div class="entry-author">by ${e.author?.name || 'Anonymous'}</div>
+                    entriesHtml = '<div class="entries-list">' + entries.map(e => `
+                        <div class="entry-card" onclick="this.classList.toggle('expanded')">
+                            <div class="entry-header">
+                                <div class="entry-discipline">${e.discipline}</div>
+                                <div class="entry-title">${e.title}</div>
+                                <div class="entry-author">by ${e.author?.name || 'Anonymous'}</div>
+                                <div class="entry-expand">▼</div>
+                            </div>
+                            <div class="entry-content">
+                                <div class="entry-technique">${e.technique ? 'Technique: ' + e.technique : ''}</div>
+                                <div class="entry-text">${(e.content || '').replace(/\n/g, '<br>')}</div>
+                            </div>
                         </div>
                     `).join('') + '</div>';
                 }
@@ -1023,32 +1030,78 @@ print("    |||")</pre>
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        .entries-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        .entries-list {
+            display: flex;
+            flex-direction: column;
             gap: 1rem;
         }
         .entry-card {
             background: var(--bg-example);
             border: 1px solid var(--border);
             border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .entry-card:hover {
+            border-color: var(--accent);
+        }
+        .entry-header {
             padding: 1rem;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            grid-template-rows: auto auto;
+            gap: 0.25rem 1rem;
+            align-items: center;
         }
         .entry-discipline {
             font-size: 0.75rem;
             text-transform: uppercase;
             color: var(--accent);
             letter-spacing: 0.1em;
-            margin-bottom: 0.5rem;
+            grid-row: 1;
+            grid-column: 1;
         }
         .entry-title {
             font-family: 'Instrument Serif', serif;
-            font-size: 1.1rem;
-            margin-bottom: 0.25rem;
+            font-size: 1.25rem;
+            grid-row: 1;
+            grid-column: 2;
+        }
+        .entry-expand {
+            grid-row: 1 / 3;
+            grid-column: 3;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            transition: transform 0.2s;
+        }
+        .entry-card.expanded .entry-expand {
+            transform: rotate(180deg);
         }
         .entry-author {
             font-size: 0.85rem;
             color: var(--text-dim);
+            grid-row: 2;
+            grid-column: 1 / 3;
+        }
+        .entry-content {
+            display: none;
+            padding: 0 1rem 1rem;
+            border-top: 1px solid var(--border);
+            margin-top: 0;
+        }
+        .entry-card.expanded .entry-content {
+            display: block;
+            padding-top: 1rem;
+        }
+        .entry-technique {
+            font-size: 0.8rem;
+            color: var(--accent2);
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+        .entry-text {
+            line-height: 1.8;
+            white-space: pre-wrap;
         }
     </style>
 </body>
