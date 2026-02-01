@@ -255,6 +255,37 @@ app.post('/api/v1/admin/reject/:id', async (req, res) => {
   }
 });
 
+// Update gallery item (for admin/AZOTH)
+app.patch('/api/v1/admin/gallery/:id', async (req, res) => {
+  const authKey = req.headers['x-admin-key'];
+  if (authKey !== process.env.ADMIN_KEY) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  
+  try {
+    const gallery = await readJSON(GALLERY_FILE);
+    const idx = gallery.findIndex(g => g.id === req.params.id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: 'Gallery item not found' });
+    }
+    
+    const item = gallery[idx];
+    const { author_name, author_url, author_wallet } = req.body;
+    
+    if (author_name) item.author.name = author_name;
+    if (author_url !== undefined) item.author.url = author_url;
+    if (author_wallet !== undefined) item.author.wallet = author_wallet;
+    
+    await writeJSON(GALLERY_FILE, gallery);
+    
+    console.log(`[UPDATE] Updated gallery item: "${item.title}" - author now: ${item.author.name}`);
+    
+    res.json({ success: true, message: 'Gallery item updated!', item });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // Public gallery
 app.get('/api/v1/gallery', async (req, res) => {
   try {
